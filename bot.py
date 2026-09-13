@@ -13,7 +13,15 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
-from flask import Flask, render_template, session, redirect, url_for, request as flask_request, jsonify
+from flask import (
+    Flask,
+    render_template,
+    session,
+    redirect,
+    url_for,
+    request as flask_request,
+    jsonify
+)
 from flask_session import Session
 import requests
 
@@ -816,11 +824,6 @@ def require_guild_access(f):
                 url_for("dashboard")
             )
 
-        # ---------------------------------------------
-        # Refresh permissions from Discord.
-        # This prevents stale sessions.
-        # ---------------------------------------------
-
         manageable_guilds = (
             refresh_manageable_guilds()
         )
@@ -841,10 +844,6 @@ def require_guild_access(f):
             return redirect(
                 url_for("dashboard")
             )
-
-        # ---------------------------------------------
-        # Make sure BFC Bot is actually in this server.
-        # ---------------------------------------------
 
         if not bot_is_in_guild(
             guild_id
@@ -952,11 +951,6 @@ def callback():
             url_for("landing")
         )
 
-    # -----------------------------------------------------
-    # Save OAuth token SERVER-SIDE in Flask-Session.
-    # It is not placed in the URL or page.
-    # -----------------------------------------------------
-
     session.permanent = True
 
     session["access_token"] = (
@@ -974,10 +968,6 @@ def callback():
             "avatar"
         )
     }
-
-    # -----------------------------------------------------
-    # Only show manageable servers where the bot exists.
-    # -----------------------------------------------------
 
     manageable_guilds = (
         get_manageable_bot_guilds(
@@ -1158,6 +1148,7 @@ def api_status():
         }), 503
 
     return jsonify({
+
         "online":
             bot_instance.user is not None,
 
@@ -1305,6 +1296,7 @@ def api_guild_channels(guild_id):
     for channel in guild.text_channels:
 
         channels.append({
+
             "id":
                 str(channel.id),
 
@@ -1471,6 +1463,10 @@ def run_web_server():
         )
     )
 
+    print(
+        f"🌐 Flask starting on port {port}..."
+    )
+
     app.run(
         host="0.0.0.0",
         port=port,
@@ -1487,11 +1483,11 @@ async def on_ready():
 
     global bot_instance
 
-    bot_instance = bot
+    print("")
+    print("🔥 ON_READY EVENT FIRED")
+    print("========================================")
 
-    print(
-        "========================================"
-    )
+    bot_instance = bot
 
     print(
         f"Logged in as {bot.user}"
@@ -1505,13 +1501,19 @@ async def on_ready():
         f"Servers: {len(bot.guilds)}"
     )
 
-    print(
-        "========================================"
-    )
+    print("========================================")
+
+    # -----------------------------------------------------
+    # SYNC SLASH COMMANDS
+    # -----------------------------------------------------
 
     try:
 
         if GUILD_ID:
+
+            print(
+                f"🔄 Syncing commands to guild {GUILD_ID}..."
+            )
 
             guild = discord.Object(
                 id=GUILD_ID
@@ -1526,34 +1528,60 @@ async def on_ready():
             )
 
             print(
-                f"Synced {len(synced)} "
+                f"✅ Synced {len(synced)} "
                 f"commands to BFC server."
             )
 
         else:
 
+            print(
+                "🔄 Syncing global commands..."
+            )
+
             synced = await bot.tree.sync()
 
             print(
-                f"Synced {len(synced)} "
+                f"✅ Synced {len(synced)} "
                 f"global commands."
             )
 
     except Exception as error:
 
         print(
-            f"Slash command sync error: {error}"
+            f"❌ Slash command sync error: {error}"
         )
 
-    await bot.change_presence(
+    # -----------------------------------------------------
+    # BOT PRESENCE
+    # -----------------------------------------------------
 
-        activity=discord.Activity(
+    try:
 
-            type=discord.ActivityType.watching,
+        await bot.change_presence(
 
-            name="Blox Fruits Community"
+            activity=discord.Activity(
+
+                type=discord.ActivityType.watching,
+
+                name="Blox Fruits Community"
+            )
         )
+
+        print(
+            "✅ Bot presence updated."
+        )
+
+    except Exception as error:
+
+        print(
+            f"❌ Presence error: {error}"
+        )
+
+    print(
+        "🟢 BFC Bot is fully ready!"
     )
+
+    print("")
 
 
 # =========================================================
@@ -2544,6 +2572,7 @@ async def giveaway(
     guild_data["giveaways"][
         giveaway_key
     ] = {
+
         "message_id":
             str(message.id),
 
@@ -2978,9 +3007,15 @@ async def on_app_command_error(
 
 if __name__ == "__main__":
 
+    print("")
+    print("🚀 Starting BFC Bot with Dashboard...")
     print(
-        "Starting BFC Bot with Dashboard..."
+        f"🌐 PORT: {os.environ.get('PORT', '10000')}"
     )
+    print(
+        f"🏴‍☠️ GUILD_ID: {GUILD_ID}"
+    )
+    print("========================================")
 
     web_thread = threading.Thread(
         target=run_web_server,
@@ -2989,6 +3024,22 @@ if __name__ == "__main__":
 
     web_thread.start()
 
-    bot.run(
-        TOKEN
+    print(
+        "🌐 Flask server started."
     )
+
+    print(
+        "🤖 Starting Discord bot..."
+    )
+
+    try:
+
+        bot.run(
+            TOKEN
+        )
+
+    except Exception as error:
+
+        print(
+            f"❌ Discord bot crashed: {error}"
+        )
