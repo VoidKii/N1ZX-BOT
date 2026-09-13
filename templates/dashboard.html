@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BFC Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">🏴‍☠️</div>
+                <h2>BFC Dashboard</h2>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="#" onclick="navigateTo('overview')" class="nav-link" data-page="overview">
+                    <span class="icon">📊</span>
+                    <span class="label">Overview</span>
+                </a>
+                <a href="#" onclick="navigateTo('messages')" class="nav-link" data-page="messages">
+                    <span class="icon">💬</span>
+                    <span class="label">Messages</span>
+                </a>
+                <a href="#" onclick="navigateTo('moderation')" class="nav-link" data-page="moderation">
+                    <span class="icon">🔨</span>
+                    <span class="label">Moderation</span>
+                </a>
+                <a href="#" onclick="navigateTo('giveaways')" class="nav-link" data-page="giveaways">
+                    <span class="icon">🎉</span>
+                    <span class="label">Giveaways</span>
+                </a>
+                <a href="#" onclick="navigateTo('bfc')" class="nav-link" data-page="bfc">
+                    <span class="icon">🏴‍☠️</span>
+                    <span class="label">BFC</span>
+                </a>
+                <a href="#" onclick="navigateTo('server')" class="nav-link" data-page="server">
+                    <span class="icon">⚙️</span>
+                    <span class="label">Server</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button onclick="switchServer()" class="switch-server-btn">
+                    <span class="icon">🔄</span>
+                    <span class="label">Switch Server</span>
+                </button>
+                <div class="user-info">
+                    <div class="user-avatar">
+                        {% if user.avatar %}
+                            <img src="https://cdn.discordapp.com/avatars/{{ user.id }}/{{ user.avatar }}.png" alt="{{ user.username }}">
+                        {% else %}
+                            <div class="default-avatar">{{ user.username[0].upper() }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="user-details">
+                        <p class="username">{{ user.username }}</p>
+                        <a href="/logout" class="logout-link">Logout</a>
+                    </div>
+                </div>
+                <p class="credit">Made by Anaisha Sharma</p>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            {% if not current_guild %}
+                <!-- Server Selection View -->
+                <div class="page-header">
+                    <h1>Select a Server</h1>
+                    <p>Choose a server you manage to get started</p>
+                </div>
+
+                <div class="server-grid">
+                    {% for guild in manageable_guilds %}
+                        <div class="server-card">
+                            {% if guild.icon %}
+                                <img src="https://cdn.discordapp.com/icons/{{ guild.id }}/{{ guild.icon }}.png" alt="{{ guild.name }}" class="server-icon">
+                            {% else %}
+                                <div class="server-icon-default">
+                                    {{ guild.name[0].upper() if guild.name else "S" }}
+                                </div>
+                            {% endif %}
+                            <h3>{{ guild.name }}</h3>
+                            <p class="server-id">ID: {{ guild.id }}</p>
+                            <a href="/dashboard/overview?guild_id={{ guild.id }}" class="btn btn-primary">
+                                Open Dashboard
+                            </a>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                {% if not manageable_guilds %}
+                    <div class="empty-state">
+                        <p>You don't manage any servers yet!</p>
+                        <p>Make sure you're the owner or have administrator permissions.</p>
+                    </div>
+                {% endif %}
+            {% else %}
+                <!-- Dashboard Pages -->
+                <div class="page-header">
+                    <div class="guild-info">
+                        {% if current_guild.icon %}
+                            <img src="https://cdn.discordapp.com/icons/{{ current_guild.id }}/{{ current_guild.icon }}.png" alt="{{ current_guild.name }}" class="guild-icon-small">
+                        {% else %}
+                            <div class="guild-icon-small-default">{{ current_guild.name[0].upper() }}</div>
+                        {% endif %}
+                        <div>
+                            <h1>{{ current_guild.name }}</h1>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- OVERVIEW PAGE -->
+                {% if page == 'overview' %}
+                <div class="page-content" id="overview-page">
+                    <div class="stats-grid" id="stats-container">
+                        <div class="stat-card loading">
+                            <div class="stat-value">-</div>
+                            <div class="stat-label">Bot Status</div>
+                        </div>
+                        <div class="stat-card loading">
+                            <div class="stat-value">-</div>
+                            <div class="stat-label">Bot Latency</div>
+                        </div>
+                        <div class="stat-card loading">
+                            <div class="stat-value">-</div>
+                            <div class="stat-label">Members</div>
+                        </div>
+                        <div class="stat-card loading">
+                            <div class="stat-value">-</div>
+                            <div class="stat-label">Channels</div>
+                        </div>
+                        <div class="stat-card loading">
+                            <div class="stat-value">-</div>
+                            <div class="stat-label">Roles</div>
+                        </div>
+                        <div class="stat-card loading">
+                            <div class="stat-value">-</div>
+                            <div class="stat-label">Commands</div>
+                        </div>
+                    </div>
+
+                    <div class="cards-grid">
+                        <div class="card">
+                            <h3>⚠️ Warnings</h3>
+                            <p class="card-value" id="warnings-count">-</p>
+                            <p class="card-label">Total warnings stored</p>
+                        </div>
+                        <div class="card">
+                            <h3>👤 Profiles</h3>
+                            <p class="card-value" id="profiles-count">-</p>
+                            <p class="card-label">BFC profiles</p>
+                        </div>
+                        <div class="card">
+                            <h3>💰 Bounties</h3>
+                            <p class="card-value" id="bounties-count">-</p>
+                            <p class="card-label">Active bounties</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MESSAGES PAGE -->
+                {% elif page == 'messages' %}
+                <div class="page-content">
+                    <div class="cards-grid">
+                        <!-- Send Message -->
+                        <div class="card">
+                            <h3>📨 Send Message</h3>
+                            <form class="form-group">
+                                <div class="form-field">
+                                    <label>Channel</label>
+                                    <select id="msg-channel" class="form-control">
+                                        <option value="">Select a channel...</option>
+                                    </select>
+                                </div>
+                                <div class="form-field">
+                                    <label>Message</label>
+                                    <textarea id="msg-text" class="form-control" placeholder="Enter your message..." rows="4"></textarea>
+                                </div>
+                                <button type="button" onclick="sendMessage()" class="btn btn-primary">Send Message</button>
+                            </form>
+                        </div>
+
+                        <!-- Send Announcement -->
+                        <div class="card">
+                            <h3>📢 Announcement</h3>
+                            <form class="form-group">
+                                <div class="form-field">
+                                    <label>Channel</label>
+                                    <select id="announce-channel" class="form-control">
+                                        <option value="">Select a channel...</option>
+                                    </select>
+                                </div>
+                                <div class="form-field">
+                                    <label>Title</label>
+                                    <input type="text" id="announce-title" class="form-control" placeholder="Announcement title">
+                                </div>
+                                <div class="form-field">
+                                    <label>Description</label>
+                                    <textarea id="announce-desc" class="form-control" placeholder="Announcement message..." rows="4"></textarea>
+                                </div>
+                                <div class="form-field">
+                                    <label>Color (Hex)</label>
+                                    <input type="text" id="announce-color" class="form-control" placeholder="5865F2" value="5865F2">
+                                </div>
+                                <button type="button" onclick="sendAnnouncement()" class="btn btn-primary">Send Announcement</button>
+                            </form>
+                        </div>
+
+                        <!-- Embed Creator -->
+                        <div class="card">
+                            <h3>🎨 Embed Creator</h3>
+                            <form class="form-group">
+                                <div class="form-field">
+                                    <label>Channel</label>
+                                    <select id="embed-channel" class="form-control">
+                                        <option value="">Select a channel...</option>
+                                    </select>
+                                </div>
+                                <div class="form-field">
+                                    <label>Title</label>
+                                    <input type="text" id="embed-title" class="form-control" placeholder="Embed title">
+                                </div>
+                                <div class="form-field">
+                                    <label>Description</label>
+                                    <textarea id="embed-desc" class="form-control" placeholder="Embed description..." rows="4"></textarea>
+                                </div>
+                                <div class="form-field">
+                                    <label>Color (Hex)</label>
+                                    <input type="text" id="embed-color" class="form-control" placeholder="5865F2" value="5865F2">
+                                </div>
+                                <div class="form-field">
+                                    <label>Footer (Optional)</label>
+                                    <input type="text" id="embed-footer" class="form-control" placeholder="Footer text">
+                                </div>
+                                <div class="form-field">
+                                    <label>Author (Optional)</label>
+                                    <input type="text" id="embed-author" class="form-control" placeholder="Author name">
+                                </div>
+                                <button type="button" onclick="sendEmbed()" class="btn btn-primary">Send Embed</button>
+                            </form>
+                        </div>
+                    </div>
+                    <p class="note">💡 Use the /embed slash command for additional features like image uploads.</p>
+                </div>
+
+                <!-- MODERATION PAGE -->
+                {% elif page == 'moderation' %}
+                <div class="page-content">
+                    <div class="card">
+                        <h3>⚙️ Moderation Panel</h3>
+                        <form class="form-group">
+                            <div class="form-row">
+                                <div class="form-field">
+                                    <label>Member</label>
+                                    <select id="mod-member" class="form-control">
+                                        <option value="">Select a member...</option>
+                                    </select>
+                                </div>
+                                <div class="form-field">
+                                    <label>Action</label>
+                                    <select id="mod-action" class="form-control">
+                                        <option value="">Select an action...</option>
+                                        <option value="warn">Warn</option>
+                                        <option value="timeout">Timeout</option>
+                                        <option value="kick">Kick</option>
+                                        <option value="ban">Ban</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-field">
+                                    <label>Reason</label>
+                                    <input type="text" id="mod-reason" class="form-control" placeholder="Reason for action">
+                                </div>
+                                <div class="form-field" id="timeout-duration-field" style="display: none;">
+                                    <label>Duration (Minutes)</label>
+                                    <input type="number" id="mod-duration" class="form-control" min="1" max="40320" placeholder="60">
+                                </div>
+                            </div>
+
+                            <button type="button" onclick="applyModeration()" class="btn btn-primary">Apply Action</button>
+                        </form>
+                    </div>
+
+                    <p class="note">💡 These actions require the bot to have proper permissions in your Discord server.</p>
+                </div>
+
+                <!-- GIVEAWAYS PAGE -->
+                {% elif page == 'giveaways' %}
+                <div class="page-content">
+                    <div class="card">
+                        <h3>🎉 Giveaway Manager</h3>
+                        <p class="note">Use the /giveaway slash command to manage giveaways on Discord.</p>
+                        
+                        <div id="giveaway-info" class="giveaway-info">
+                            <p>Active giveaways and data will appear here.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BFC PAGE -->
+                {% elif page == 'bfc' %}
+                <div class="page-content">
+                    <div class="cards-grid">
+                        <div class="card">
+                            <h3>👤 Profiles</h3>
+                            <p class="card-value" id="bfc-profiles">-</p>
+                            <p class="card-label">Player profiles created</p>
+                        </div>
+                        <div class="card">
+                            <h3>💰 Bounties</h3>
+                            <p class="card-value" id="bfc-bounties">-</p>
+                            <p class="card-label">Active bounties</p>
+                        </div>
+                        <div class="card">
+                            <h3>✅ Verification</h3>
+                            <p class="card-label">Use /verify in Discord to verify your Roblox account.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SERVER PAGE -->
+                {% elif page == 'server' %}
+                <div class="page-content">
+                    <div class="card">
+                        <h3>🖥️ Server Information</h3>
+                        <div id="server-info" class="server-info loading">
+                            <p>Loading server information...</p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            {% endif %}
+        </main>
+    </div>
+
+    <script>
+        const GUILD_ID = "{{ current_guild.id if current_guild else '' }}";
+        const CURRENT_PAGE = "{{ page }}";
+
+        async function navigateTo(page) {
+            if (!GUILD_ID) {
+                window.location.href = '/dashboard';
+                return;
+            }
+            window.location.href = `/dashboard/${page}?guild_id=${GUILD_ID}`;
+        }
+
+        function switchServer() {
+            window.location.href = '/dashboard';
+        }
+
+        async function fetchChannels() {
+            if (!GUILD_ID) return;
+            try {
+                const response = await fetch(`/api/guild/${GUILD_ID}/channels`);
+                const data = await response.json();
+                
+                const selects = ['msg-channel', 'announce-channel', 'embed-channel'];
+                selects.forEach(id => {
+                    const select = document.getElementById(id);
+                    if (select) {
+                        select.innerHTML = '<option value="">Select a channel...</option>';
+                        data.channels.forEach(channel => {
+                            const option = document.createElement('option');
+                            option.value = channel.id;
+                            option.textContent = channel.name;
+                            select.appendChild(option);
+                        });
+                    }
+                });
+            } catch (error) {
+                console.error('Error fetching channels:', error);
+            }
+        }
+
+        async function fetchMembers() {
+            if (!GUILD_ID) return;
+            try {
+                const response = await fetch(`/api/guild/${GUILD_ID}/members`);
+                const data = await response.json();
+                
+                const select = document.getElementById('mod-member');
+                if (select) {
+                    select.innerHTML = '<option value="">Select a member...</option>';
+                    data.members.forEach(member => {
+                        const option = document.createElement('option');
+                        option.value = member.id;
+                        option.textContent = member.name;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error fetching members:', error);
+            }
+        }
+
+        async function loadOverviewData() {
+            if (CURRENT_PAGE !== 'overview') return;
+            
+            try {
+                // Fetch status
+                const statusRes = await fetch('/api/status');
+                const statusData = await statusRes.json();
+                
+                // Fetch guild info
+                const guildRes = await fetch(`/api/guild/${GUILD_ID}/info`);
+                const guildData = await guildRes.json();
+                
+                // Fetch data counts
+                const dataRes = await fetch(`/api/guild/${GUILD_ID}/data`);
+                const dataCounts = await dataRes.json();
+                
+                // Update stats
+                const html = `
+                    <div class="stat-card">
+                        <div class="stat-value">${statusData.online ? '✅' : '❌'}</div>
+                        <div class="stat-label">Bot Status</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${statusData.latency}ms</div>
+                        <div class="stat-label">Bot Latency</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${guildData.member_count}</div>
+                        <div class="stat-label">Members</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${guildData.channel_count}</div>
+                        <div class="stat-label">Channels</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${guildData.role_count}</div>
+                        <div class="stat-label">Roles</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${statusData.commands}</div>
+                        <div class="stat-label">Commands</div>
+                    </div>
+                `;
+                
+                const container = document.getElementById('stats-container');
+                if (container) {
+                    container.innerHTML = html;
+                }
+                
+                // Update data counts
+                document.getElementById('warnings-count').textContent = dataCounts.warnings;
+                document.getElementById('profiles-count').textContent = dataCounts.profiles;
+                document.getElementById('bounties-count').textContent = dataCounts.bounties;
+            } catch (error) {
+                console.error('Error loading overview data:', error);
+            }
+        }
+
+        async function loadServerInfo() {
+            if (CURRENT_PAGE !== 'server') return;
+            
+            try {
+                const response = await fetch(`/api/guild/${GUILD_ID}/info`);
+                const data = await response.json();
+                
+                const html = `
+                    <div class="info-row">
+                        <span class="info-label">Server Name:</span>
+                        <span class="info-value">${data.name}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Server ID:</span>
+                        <span class="info-value">${data.id}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Member Count:</span>
+                        <span class="info-value">${data.member_count}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Channel Count:</span>
+                        <span class="info-value">${data.channel_count}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Role Count:</span>
+                        <span class="info-value">${data.role_count}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Owner:</span>
+                        <span class="info-value">${data.owner}</span>
+                    </div>
+                `;
+                
+                document.getElementById('server-info').innerHTML = html;
+                document.getElementById('server-info').classList.remove('loading');
+            } catch (error) {
+                console.error('Error loading server info:', error);
+            }
+        }
+
+        async function loadBFCData() {
+            if (CURRENT_PAGE !== 'bfc') return;
+            
+            try {
+                const response = await fetch(`/api/guild/${GUILD_ID}/data`);
+                const data = await response.json();
+                
+                document.getElementById('bfc-profiles').textContent = data.profiles;
+                document.getElementById('bfc-bounties').textContent = data.bounties;
+            } catch (error) {
+                console.error('Error loading BFC data:', error);
+            }
+        }
+
+        function showTimeoutDuration(action) {
+            const field = document.getElementById('timeout-duration-field');
+            if (field) {
+                field.style.display = action === 'timeout' ? 'block' : 'none';
+            }
+        }
+
+        document.getElementById('mod-action')?.addEventListener('change', (e) => {
+            showTimeoutDuration(e.target.value);
+        });
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchChannels();
+            fetchMembers();
+            loadOverviewData();
+            loadServerInfo();
+            loadBFCData();
+
+            // Update sidebar active state
+            const currentLink = document.querySelector(`[data-page="${CURRENT_PAGE}"]`);
+            if (currentLink) {
+                document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+                currentLink.classList.add('active');
+            }
+        });
+
+        function showAlert(message, type = 'info') {
+            alert(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        async function sendMessage() {
+            const channel = document.getElementById('msg-channel').value;
+            const message = document.getElementById('msg-text').value;
+
+            if (!channel || !message) {
+                showAlert('Please fill all fields', 'error');
+                return;
+            }
+
+            showAlert('Message sending feature is available via /say slash command in Discord.', 'info');
+        }
+
+        async function sendAnnouncement() {
+            const channel = document.getElementById('announce-channel').value;
+            const title = document.getElementById('announce-title').value;
+            const desc = document.getElementById('announce-desc').value;
+
+            if (!channel || !title || !desc) {
+                showAlert('Please fill all fields', 'error');
+                return;
+            }
+
+            showAlert('Announcement sending feature is available via /announce slash command in Discord.', 'info');
+        }
+
+        async function sendEmbed() {
+            const channel = document.getElementById('embed-channel').value;
+            const title = document.getElementById('embed-title').value;
+            const desc = document.getElementById('embed-desc').value;
+
+            if (!channel || !title || !desc) {
+                showAlert('Please fill all fields', 'error');
+                return;
+            }
+
+            showAlert('Embed creation is available via /embed slash command in Discord with full image upload support.', 'info');
+        }
+
+        async function applyModeration() {
+            const member = document.getElementById('mod-member').value;
+            const action = document.getElementById('mod-action').value;
+            const reason = document.getElementById('mod-reason').value;
+
+            if (!member || !action) {
+                showAlert('Please select a member and action', 'error');
+                return;
+            }
+
+            showAlert(`Moderation actions are available via slash commands in Discord: /warn, /timeout, /kick, /ban`, 'info');
+        }
+    </script>
+</body>
+</html>
