@@ -13,6 +13,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
+
 from flask import (
     Flask,
     render_template,
@@ -22,6 +23,7 @@ from flask import (
     request as flask_request,
     jsonify
 )
+
 from flask_session import Session
 import requests
 
@@ -62,6 +64,7 @@ if not TOKEN:
     raise RuntimeError(
         "DISCORD_TOKEN is missing from .env"
     )
+
 
 if not DISCORD_CLIENT_ID or not DISCORD_CLIENT_SECRET:
     print(
@@ -122,7 +125,38 @@ intents.members = True
 intents.message_content = True
 
 
-bot = commands.Bot(
+# =========================================================
+# BOT CLASS
+# =========================================================
+
+class BFCBot(commands.Bot):
+
+    async def setup_hook(self):
+
+        print("")
+        print("========================================")
+        print("🧩 DISCORD SETUP_HOOK FIRED")
+        print("========================================")
+
+        try:
+            command_count = len(
+                self.tree.get_commands()
+            )
+
+            print(
+                f"📦 Commands currently registered: {command_count}"
+            )
+
+        except Exception as error:
+
+            print(
+                f"⚠️ Could not count commands: {error}"
+            )
+
+        print("========================================")
+
+
+bot = BFCBot(
     command_prefix="!",
     intents=intents,
     help_command=None
@@ -147,25 +181,6 @@ DEFAULT_DATA = {
 
 
 def load_data():
-    """
-    Load BFC data.
-
-    New format:
-
-    {
-        "guilds": {
-            "GUILD_ID": {
-                "warnings": {},
-                "profiles": {},
-                "bounties": {},
-                "giveaways": {}
-            }
-        }
-    }
-
-    Older global data is automatically migrated
-    into GUILD_ID when possible.
-    """
 
     if not os.path.exists(DATA_FILE):
 
@@ -186,15 +201,15 @@ def load_data():
             loaded = json.load(f)
 
         # -------------------------------------------------
-        # New format
+        # NEW FORMAT
         # -------------------------------------------------
 
-        if isinstance(
-            loaded,
-            dict
-        ) and isinstance(
-            loaded.get("guilds"),
-            dict
+        if (
+            isinstance(loaded, dict)
+            and isinstance(
+                loaded.get("guilds"),
+                dict
+            )
         ):
 
             for guild_id, guild_data in loaded["guilds"].items():
@@ -203,6 +218,7 @@ def load_data():
                     guild_data,
                     dict
                 ):
+
                     loaded["guilds"][guild_id] = {}
 
                 for key in DEFAULT_GUILD_DATA:
@@ -214,7 +230,7 @@ def load_data():
             return loaded
 
         # -------------------------------------------------
-        # Old format migration
+        # OLD FORMAT MIGRATION
         # -------------------------------------------------
 
         migrated = {
@@ -224,18 +240,22 @@ def load_data():
         if GUILD_ID:
 
             migrated["guilds"][str(GUILD_ID)] = {
+
                 "warnings": loaded.get(
                     "warnings",
                     {}
                 ),
+
                 "profiles": loaded.get(
                     "profiles",
                     {}
                 ),
+
                 "bounties": loaded.get(
                     "bounties",
                     {}
                 ),
+
                 "giveaways": loaded.get(
                     "giveaways",
                     {}
@@ -291,9 +311,6 @@ data = load_data()
 
 
 def get_guild_data(guild_or_id):
-    """
-    Get data belonging only to one Discord server.
-    """
 
     if hasattr(
         guild_or_id,
@@ -339,9 +356,6 @@ def get_guild_data(guild_or_id):
 
 
 def get_warnings(guild, user_id):
-    """
-    Get warnings for a user in a specific server.
-    """
 
     guild_data = get_guild_data(guild)
 
@@ -436,26 +450,11 @@ def escape_html(text):
 
     return (
         text
-        .replace(
-            "&",
-            "&amp;"
-        )
-        .replace(
-            "<",
-            "&lt;"
-        )
-        .replace(
-            ">",
-            "&gt;"
-        )
-        .replace(
-            '"',
-            "&quot;"
-        )
-        .replace(
-            "'",
-            "&#x27;"
-        )
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&#x27;")
     )
 
 
@@ -578,10 +577,6 @@ def get_discord_guilds(access_token):
 
 
 def can_manage_guild(guild_data):
-    """
-    Discord OAuth guild permissions are returned
-    as a string, so convert them to an integer first.
-    """
 
     try:
 
@@ -642,12 +637,6 @@ def bot_is_in_guild(guild_id):
 def get_manageable_bot_guilds(
     access_token
 ):
-    """
-    Return only servers where:
-
-    1. The user can manage the server.
-    2. BFC Bot is actually installed.
-    """
 
     guilds = get_discord_guilds(
         access_token
@@ -711,13 +700,6 @@ def refresh_manageable_guilds():
 
 
 def get_requested_guild_id():
-
-    """
-    Get guild ID from:
-    - URL query
-    - POST form
-    - Flask route parameters
-    """
 
     guild_id = (
         flask_request.args.get(
@@ -837,6 +819,7 @@ def require_guild_access(f):
             ) == str(guild_id):
 
                 allowed_guild = guild_data
+
                 break
 
         if not allowed_guild:
@@ -958,12 +941,15 @@ def callback():
     )
 
     session["user"] = {
+
         "id": user_data.get(
             "id"
         ),
+
         "username": user_data.get(
             "username"
         ),
+
         "avatar": user_data.get(
             "avatar"
         )
@@ -1164,7 +1150,7 @@ def api_status():
 
         "commands":
             len(
-                bot_instance.tree._get_all_commands()
+                bot_instance.tree.get_commands()
             )
     })
 
@@ -1414,8 +1400,7 @@ def api_guild_data(guild_id):
         len(
             warning_list
         )
-        for warning_list
-        in warnings.values()
+        for warning_list in warnings.values()
         if isinstance(
             warning_list,
             list
@@ -1475,6 +1460,35 @@ def run_web_server():
 
 
 # =========================================================
+# DISCORD CONNECTION DEBUG
+# =========================================================
+
+@bot.event
+async def on_connect():
+
+    print("")
+    print("========================================")
+    print("🔌 DISCORD ON_CONNECT FIRED")
+    print("========================================")
+    print("✅ Connected to Discord Gateway.")
+    print("⏳ Waiting for READY event...")
+    print("========================================")
+    print("")
+
+
+@bot.event
+async def on_resumed():
+
+    print("")
+    print("========================================")
+    print("🔄 DISCORD SESSION RESUMED")
+    print("========================================")
+    print("✅ Discord connection resumed successfully.")
+    print("========================================")
+    print("")
+
+
+# =========================================================
 # READY
 # =========================================================
 
@@ -1484,35 +1498,43 @@ async def on_ready():
     global bot_instance
 
     print("")
-    print("🔥 ON_READY EVENT FIRED")
+    print("🔥🔥🔥 ON_READY EVENT FIRED 🔥🔥🔥")
     print("========================================")
 
     bot_instance = bot
 
     print(
-        f"Logged in as {bot.user}"
+        f"🤖 Logged in as: {bot.user}"
     )
 
     print(
-        f"Bot ID: {bot.user.id}"
+        f"🆔 Bot ID: {bot.user.id}"
     )
 
     print(
-        f"Servers: {len(bot.guilds)}"
+        f"🌐 Servers: {len(bot.guilds)}"
+    )
+
+    print(
+        f"📡 Latency: {round(bot.latency * 1000)}ms"
     )
 
     print("========================================")
 
     # -----------------------------------------------------
-    # SYNC SLASH COMMANDS
+    # COMMAND SYNC
     # -----------------------------------------------------
 
     try:
 
+        print(
+            "🔄 Starting slash command sync..."
+        )
+
         if GUILD_ID:
 
             print(
-                f"🔄 Syncing commands to guild {GUILD_ID}..."
+                f"🎯 Target guild: {GUILD_ID}"
             )
 
             guild = discord.Object(
@@ -1529,30 +1551,34 @@ async def on_ready():
 
             print(
                 f"✅ Synced {len(synced)} "
-                f"commands to BFC server."
+                f"commands to guild {GUILD_ID}"
             )
 
         else:
 
             print(
-                "🔄 Syncing global commands..."
+                "🌍 GUILD_ID is 0."
+            )
+
+            print(
+                "🌍 Syncing commands globally..."
             )
 
             synced = await bot.tree.sync()
 
             print(
                 f"✅ Synced {len(synced)} "
-                f"global commands."
+                f"global commands"
             )
 
     except Exception as error:
 
         print(
-            f"❌ Slash command sync error: {error}"
+            f"❌ SLASH COMMAND SYNC ERROR: {error}"
         )
 
     # -----------------------------------------------------
-    # BOT PRESENCE
+    # PRESENCE
     # -----------------------------------------------------
 
     try:
@@ -1574,13 +1600,17 @@ async def on_ready():
     except Exception as error:
 
         print(
-            f"❌ Presence error: {error}"
+            f"❌ PRESENCE ERROR: {error}"
         )
 
-    print(
-        "🟢 BFC Bot is fully ready!"
-    )
+    # -----------------------------------------------------
+    # FINAL STATUS
+    # -----------------------------------------------------
 
+    print("")
+    print("========================================")
+    print("🟢🟢🟢 BFC BOT IS FULLY ONLINE 🟢🟢🟢")
+    print("========================================")
     print("")
 
 
@@ -2957,7 +2987,7 @@ async def verify(
     except Exception as error:
 
         print(
-            f"Verification error: {error}"
+            f"❌ Verification error: {error}"
         )
 
         await interaction.followup.send(
@@ -2977,7 +3007,7 @@ async def on_app_command_error(
 ):
 
     print(
-        f"Command error: {error}"
+        f"❌ Command error: {error}"
     )
 
     try:
@@ -3008,14 +3038,31 @@ async def on_app_command_error(
 if __name__ == "__main__":
 
     print("")
-    print("🚀 Starting BFC Bot with Dashboard...")
+    print("========================================")
+    print("🚀 STARTING BFC BOT WITH DASHBOARD")
+    print("========================================")
+
     print(
         f"🌐 PORT: {os.environ.get('PORT', '10000')}"
     )
+
     print(
         f"🏴‍☠️ GUILD_ID: {GUILD_ID}"
     )
+
+    print(
+        f"🐍 Python version: {__import__('sys').version}"
+    )
+
+    print(
+        f"🤖 discord.py version: {discord.__version__}"
+    )
+
     print("========================================")
+
+    # -----------------------------------------------------
+    # START FLASK
+    # -----------------------------------------------------
 
     web_thread = threading.Thread(
         target=run_web_server,
@@ -3032,14 +3079,33 @@ if __name__ == "__main__":
         "🤖 Starting Discord bot..."
     )
 
+    print(
+        "⏳ Waiting for Discord connection..."
+    )
+
+    print("")
+
+    # -----------------------------------------------------
+    # START DISCORD
+    # -----------------------------------------------------
+
     try:
 
         bot.run(
             TOKEN
         )
 
+    except discord.LoginFailure:
+
+        print("")
+        print("❌ DISCORD LOGIN FAILED")
+        print("❌ Check the DISCORD_TOKEN environment variable.")
+        print("")
+
     except Exception as error:
 
+        print("")
         print(
             f"❌ Discord bot crashed: {error}"
         )
+        print("")
